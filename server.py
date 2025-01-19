@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import cv2
-import base64
-import numpy as np
 import random
 
 def compress_frame(frame):
@@ -53,6 +51,13 @@ def handle_video_frame(data):
     room_id = data['room_id']
     if request.sid == rooms[room_id]['host']:
         emit('video_frame', {'frame': data['frame']}, to=room_id, include_self=False)
+
+@socketio.on('send_message')
+def handle_send_message(data):
+    room_id = data['room_id']
+    message = data['message']
+    name = rooms[room_id]['participants'].get(request.sid, 'Anonymous')
+    emit('receive_message', {'name': name, 'message': message}, to=room_id)
 
 @socketio.on('disconnect')
 def handle_disconnect():

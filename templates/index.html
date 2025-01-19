@@ -10,16 +10,30 @@
     <style>
         #videoContainer {
             display: flex;
-            justify-content: space-between;
             gap: 10px;
+            height: 400px;
         }
         canvas, video {
             background-color: #000;
             width: 100%;
+            height: 100%;
+        }
+        #chatContainer {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
         }
         #chatBox {
-            max-height: 200px;
+            flex-grow: 1;
             overflow-y: auto;
+            margin-bottom: 10px;
+        }
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
@@ -42,15 +56,20 @@
 
         <div id="conference" class="d-none">
             <h3 id="roomIdDisplay">Room: </h3>
-            <div id="videoContainer" class="row">
-                <div class="col-md-6">
+            <div id="videoContainer">
+                <div id="localVideoContainer" class="col-md-6">
                     <video id="localVideo" autoplay muted></video>
                 </div>
-                <div class="col-md-6">
+                <div id="remoteVideoContainer" class="col-md-6 hidden">
                     <canvas id="remoteVideo"></canvas>
                 </div>
+                <div class="col-md-4" id="chatContainer">
+                    <h5>Chat</h5>
+                    <div id="chatBox" class="border p-2 mb-2"></div>
+                    <input type="text" id="chatInput" class="form-control mb-2" placeholder="Type a message">
+                    <button class="btn btn-primary w-100" onclick="sendMessage()">Send</button>
+                </div>
             </div>
-
             <div class="mt-4">
                 <button class="btn btn-warning" onclick="toggleCamera()">
                     <i class="fas fa-video"></i> Toggle Camera
@@ -67,9 +86,10 @@
         let roomId = '';
         let localStream = null;
         let isHost = false;
-
+        let nom ="";
         function createRoom() {
             const name = document.getElementById('nameInput').value;
+            nom=name;
             if (!name) {
                 alert('Please enter your name.');
                 return;
@@ -84,6 +104,7 @@
 
         function joinRoom() {
             const name = document.getElementById('nameInput').value;
+            nom=name;
             roomId = document.getElementById('roomIdInput').value;
 
             if (!name || !roomId) {
@@ -102,11 +123,16 @@
                 document.getElementById('roomIdDisplay').innerText = `Room: ${roomId}`;
             });
 
+            // Hide remote video if not the host
             if (!isHost) {
-                document.getElementById('localVideo').style.display = 'none';
-            }
-            if (isHost) {
-                document.getElementById('remoteVideo').style.display = 'none';
+                document.getElementById('remoteVideoContainer').classList.remove('hidden');
+                document.getElementById('localVideoContainer').classList.add('hidden');
+                const toggleCameraButton = document.querySelector('.btn.btn-warning');
+        if (toggleCameraButton) {
+            toggleCameraButton.style.display = 'none';
+        }
+            } else {
+                document.getElementById('remoteVideoContainer').classList.add('hidden');
             }
         }
 
@@ -144,6 +170,32 @@
             } else {
                 localStream.getVideoTracks()[0].enabled = !localStream.getVideoTracks()[0].enabled;
             }
+        }
+
+        function sendMessage() {
+    const message = document.getElementById('chatInput').value.trim();
+    if (!message) return;
+
+    socket.emit('send_message', { room_id: roomId, message });
+
+    addChatMessage('You', message);
+    document.getElementById('chatInput').value = '';
+}
+socket.on('receive_message', (data) => {
+    console.log(data.name+"      "+nom)
+    if (data.name !== nom) {
+        addChatMessage(data.name, data.message);
+    }
+});
+
+
+        
+        function addChatMessage(name, message) {
+            const chatBox = document.getElementById('chatBox');
+            const newMessage = document.createElement('div');
+            newMessage.textContent = `${name}: ${message}`;
+            chatBox.appendChild(newMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         function leaveRoom() {
