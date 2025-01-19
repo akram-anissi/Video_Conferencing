@@ -43,8 +43,14 @@ def handle_join_room(data):
         return
     join_room(room_id)
     rooms[room_id]['participants'][request.sid] = name
+    # Envoyer un événement de confirmation
+    emit('joined_room', {'room_id': room_id, 'name': name})
+
+    # Envoyer les messages existants à l'utilisateur qui rejoint
+    previous_messages = rooms[room_id].get('messages', [])
     emit('joined_room', {'room_id': room_id, 'name': name})
     emit('participant_joined', {'name': name}, to=room_id)
+    emit('previous_messages', previous_messages, room=request.sid)
 
 @socketio.on('video_frame')
 def handle_video_frame(data):
@@ -57,6 +63,8 @@ def handle_send_message(data):
     room_id = data['room_id']
     message = data['message']
     name = rooms[room_id]['participants'].get(request.sid, 'Anonymous')
+    # Enregistrer le message dans la liste des messages de la salle
+    rooms[room_id].setdefault('messages', []).append({'name': name, 'message': message})
     emit('receive_message', {'name': name, 'message': message}, to=room_id)
 
 @socketio.on('disconnect')
